@@ -226,7 +226,7 @@ export class Parser {
         case 'query':
         case 'mutation':
         case 'subscription':
-          return this.parseOperationDefinition();
+          return this.parseOperationDefinition(false);
         case 'fragment':
           return this.parseFragmentDefinition();
         case 'schema':
@@ -242,7 +242,7 @@ export class Parser {
           return this.parseTypeSystemExtension();
       }
     } else if (this.peek(TokenKind.BRACE_L)) {
-      return this.parseOperationDefinition();
+      return this.parseOperationDefinition(false); // TODO(areilly): Should this be false?
     } else if (this.peekDescription()) {
       return this.parseTypeSystemDefinition();
     }
@@ -257,7 +257,7 @@ export class Parser {
    *  - SelectionSet
    *  - OperationType Name? VariableDefinitions? Directives? SelectionSet
    */
-  parseOperationDefinition(): OperationDefinitionNode {
+  parseOperationDefinition(allowRequiredField: boolean): OperationDefinitionNode {
     const start = this._lexer.token;
     if (this.peek(TokenKind.BRACE_L)) {
       // @ts-expect-error FIXME
@@ -268,7 +268,7 @@ export class Parser {
         name: undefined,
         variableDefinitions: [],
         directives: [],
-        selectionSet: this.parseSelectionSet(),
+        selectionSet: this.parseSelectionSet(allowRequiredField),
       });
     }
     const operation = this.parseOperationType();
@@ -284,7 +284,7 @@ export class Parser {
       name,
       variableDefinitions: this.parseVariableDefinitions(),
       directives: this.parseDirectives(false),
-      selectionSet: this.parseSelectionSet(),
+      selectionSet: this.parseSelectionSet(allowRequiredField),
     });
   }
 
@@ -350,14 +350,19 @@ export class Parser {
   /**
    * SelectionSet : { Selection+ }
    */
-  parseSelectionSet(): SelectionSetNode {
+  parseSelectionSet(allowRequiredField: boolean = false): SelectionSetNode {
+    const _allowRequiredField = allowRequiredField
+    let parseSelectionFn: () => SelectionNode = function (): SelectionNode {
+      return this.parseSelection(_allowRequiredField)
+    }
+    
     // @ts-expect-error FIXME
     return this.node(this._lexer.token, {
       // @ts-expect-error FIXME
       kind: Kind.SELECTION_SET,
       selections: this.many(
         TokenKind.BRACE_L,
-        this.parseSelection,
+        parseSelectionFn,
         TokenKind.BRACE_R,
       ),
     });
@@ -369,10 +374,10 @@ export class Parser {
    *   - FragmentSpread
    *   - InlineFragment
    */
-  parseSelection(): SelectionNode {
+  parseSelection(allowRequiredField: boolean): SelectionNode {
     return this.peek(TokenKind.SPREAD)
       ? this.parseFragment()
-      : this.parseField();
+      : this.parseField(allowRequiredField);
   }
 
   /**
@@ -380,12 +385,19 @@ export class Parser {
    *
    * Alias : Name :
    */
-  parseField(): FieldNode {
+  parseField(allowRequiredField: boolean): FieldNode {
     const start = this._lexer.token;
 
     const nameOrAlias = this.parseName();
     let alias;
     let name;
+    let required;
+    if (allowRequiredField && this.expectOptionalToken(TokenKind.BANG)) {
+      required = true
+    } else {
+      required = false
+    }
+
     if (this.expectOptionalToken(TokenKind.COLON)) {
       alias = nameOrAlias;
       name = this.parseName();
@@ -402,8 +414,9 @@ export class Parser {
       arguments: this.parseArguments(false),
       directives: this.parseDirectives(false),
       selectionSet: this.peek(TokenKind.BRACE_L)
-        ? this.parseSelectionSet()
+        ? this.parseSelectionSet(allowRequiredField)
         : undefined,
+      required: required,
     });
   }
 
