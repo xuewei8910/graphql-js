@@ -226,7 +226,7 @@ export class Parser {
         case 'query':
         case 'mutation':
         case 'subscription':
-          return this.parseOperationDefinition(false);
+          return this.parseOperationDefinition();
         case 'fragment':
           return this.parseFragmentDefinition();
         case 'schema':
@@ -351,17 +351,13 @@ export class Parser {
    * SelectionSet : { Selection+ }
    */
   parseSelectionSet(): SelectionSetNode {
-    let parseSelectionFn: () => SelectionNode = function (): SelectionNode {
-      return this.parseSelection();
-    };
-
     // @ts-expect-error FIXME
     return this.node(this._lexer.token, {
       // @ts-expect-error FIXME
       kind: Kind.SELECTION_SET,
       selections: this.many(
         TokenKind.BRACE_L,
-        parseSelectionFn,
+        this.parseSelection,
         TokenKind.BRACE_R,
       ),
     });
