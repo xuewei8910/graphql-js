@@ -103,3 +103,5 @@ export {
   findDangerousChanges,
 } from './findBreakingChanges';
 export type { BreakingChange, DangerousChange } from './findBreakingChanges';
+
+export { modifiedOutputType } from './applyRequiredStatus'
