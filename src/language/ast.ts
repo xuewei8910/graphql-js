@@ -285,7 +285,7 @@ export type SelectionSetNode = {
 
 export type SelectionNode = FieldNode | FragmentSpreadNode | InlineFragmentNode;
 
-type RequiredStatus = 'required' | 'optional' | 'unset';
+export type RequiredStatus = 'required' | 'optional' | 'unset';
 
 export type FieldNode = {
   readonly kind: 'Field';
